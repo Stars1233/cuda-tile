@@ -4205,9 +4205,9 @@ struct CudaTileinlinerInterface : public DialectInlinerInterface {
     // Create a new loop operation that will contain the inlined block, and
     // update the original return to use the loops results.
     builder.setInsertionPointToStart(&block);
-    auto loopOp = builder.create<LoopOp>(
-        block.front().getLoc(), returnOp->getOperandTypes(),
-        /*operands=*/ValueRange(), /*attributes=*/std::nullopt);
+    auto loopOp = builder.create<LoopOp>(block.front().getLoc(),
+                                         returnOp->getOperandTypes(),
+                                         /*operands=*/ValueRange());
     returnOp->setOperands(loopOp.getResults());
     returnOp->moveAfter(loopOp);
 

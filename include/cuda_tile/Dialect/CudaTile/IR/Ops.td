@@ -1580,7 +1580,7 @@ def CudaTile_ForOp : CudaTileControlFlowOpDef<"for", "13.1", [
   let skipDefaultBuilders = 1;
   let builders = [
     OpBuilder<(ins "Value":$lowerBound, "Value":$upperBound, "Value":$step,
-      CArg<"ValueRange", "std::nullopt">:$initArgs,
+      CArg<"ValueRange", "{}">:$initArgs,
       CArg<"function_ref<void(OpBuilder &, Location, Value, ValueRange)>",
            "nullptr">)>
   ];
@@ -3528,7 +3528,7 @@ def CudaTile_ReturnOp : CudaTileControlFlowOpDef<"return", "13.1", [
   let arguments = (ins CudaTileArg<Variadic<AnyType>, "The values to return.", "13.1">:$operands);
 
   let builders = [OpBuilder<(ins), [{
-    build($_builder, $_state, std::nullopt);
+    build($_builder, $_state, ValueRange{});
   }]>];
 
   let assemblyFormat = [{
