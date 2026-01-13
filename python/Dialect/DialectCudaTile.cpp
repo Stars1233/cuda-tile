@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-#include "mlir/Bindings/Python/PybindAdaptors.h"
+#include "mlir/Bindings/Python/NanobindAdaptors.h"
 #include "mlir/CAPI/IR.h"
 
 #include "llvm/ADT/ArrayRef.h"
@@ -12,9 +12,10 @@
 
 #include "cuda_tile-c/Dialect/CudaTileDialect.h"
 
-using namespace mlir::python::adaptors;
+namespace nb = nanobind;
+using namespace mlir::python::nanobind_adaptors;
 
-PYBIND11_MODULE(_cuda_tile, m) {
+NB_MODULE(_cuda_tile, m) {
   //===--------------------------------------------------------------------===//
   // CudaTile dialect/pass registration
   //===--------------------------------------------------------------------===//
@@ -27,7 +28,7 @@ PYBIND11_MODULE(_cuda_tile, m) {
           mlirDialectHandleLoadDialect(handle, context);
         }
       },
-      py::arg("context") = py::none(), py::arg("load") = true);
+      nb::arg("context") = nb::none(), nb::arg("load") = true);
 
   m.def("register_passes", []() { mlirCudaTileRegisterPasses(); });
 
@@ -40,32 +41,32 @@ PYBIND11_MODULE(_cuda_tile, m) {
     bool canonicalize_after = true;  // Default: enabled
   };
 
-  py::class_<TileIROptimizationsOptsWrapper>(m, "TileIROptimizationsOpts")
-      .def(py::init<>())
-      .def_readwrite("loop_split_threshold",
-                     &TileIROptimizationsOptsWrapper::loop_split_threshold)
-      .def_readwrite("enable_cse", &TileIROptimizationsOptsWrapper::enable_cse)
-      .def_readwrite("canonicalize_before",
-                     &TileIROptimizationsOptsWrapper::canonicalize_before)
-      .def_readwrite("canonicalize_after",
-                     &TileIROptimizationsOptsWrapper::canonicalize_after);
+  nb::class_<TileIROptimizationsOptsWrapper>(m, "TileIROptimizationsOpts")
+      .def(nb::init<>())
+      .def_rw("loop_split_threshold",
+              &TileIROptimizationsOptsWrapper::loop_split_threshold)
+      .def_rw("enable_cse", &TileIROptimizationsOptsWrapper::enable_cse)
+      .def_rw("canonicalize_before",
+              &TileIROptimizationsOptsWrapper::canonicalize_before)
+      .def_rw("canonicalize_after",
+              &TileIROptimizationsOptsWrapper::canonicalize_after);
 
   // TODO: Add CudaTile python bindings tests for ir passes
   m.def(
       "applyTileIROptimizations",
-      [](py::object &moduleOp, const TileIROptimizationsOptsWrapper &opts) {
-        MlirOperation mlirOp = py::cast<MlirOperation>(moduleOp);
+      [](nb::object &moduleOp, const TileIROptimizationsOptsWrapper &opts) {
+        MlirOperation mlirOp = nb::cast<MlirOperation>(moduleOp);
         return mlirCudaTileApplyOptimizations(
             mlirOp, opts.loop_split_threshold, opts.enable_cse,
             opts.canonicalize_before, opts.canonicalize_after);
       },
-      py::arg("module"), py::arg("opts") = TileIROptimizationsOptsWrapper{},
+      nb::arg("module"), nb::arg("opts") = TileIROptimizationsOptsWrapper{},
       "Perform CUDA Tile IR optimizations using CAPI wrapper");
 
   m.def(
       "addLoopSplitThresholdAttr",
-      [](py::object &Op, const int threshold) {
-        MlirOperation mlirOp = py::cast<MlirOperation>(Op);
+      [](nb::object &Op, const int threshold) {
+        MlirOperation mlirOp = nb::cast<MlirOperation>(Op);
         MlirContext ctx = mlirOperationGetContext(mlirOp);
         MlirType i32Type = mlirCudaTileIntegerTypeGet(ctx, 32);
         MlirAttribute thresholdAttr =
@@ -75,14 +76,14 @@ PYBIND11_MODULE(_cuda_tile, m) {
         mlirCudaTileOperationSetDiscardableAttributeByName(mlirOp, attrName,
                                                            thresholdAttr);
       },
-      py::arg("op"), py::arg("threshold"),
+      nb::arg("op"), nb::arg("threshold"),
       "Set Loop Split optimization hint for operation using CAPI wrapper");
 
   m.def(
       "writeBytecode",
-      [](const py::object &file_obj, const py::object &moduleOp) -> bool {
+      [](const nb::object &file_obj, const nb::object &moduleOp) -> bool {
         // Convert the Python object to MLIR module
-        MlirOperation mlirOp = py::cast<MlirOperation>(moduleOp);
+        MlirOperation mlirOp = nb::cast<MlirOperation>(moduleOp);
 
         // Platform-independent approach: write to memory buffer via CAPI,
         // then let Python handle file I/O
@@ -94,17 +95,17 @@ PYBIND11_MODULE(_cuda_tile, m) {
           return false;
 
         // Write buffer to Python file object
-        py::bytes data(bytecode_buffer.data, bytecode_buffer.length);
+        nb::bytes data(bytecode_buffer.data, bytecode_buffer.length);
         file_obj.attr("write")(data);
-        if (py::hasattr(file_obj, "flush"))
+        if (nb::hasattr(file_obj, "flush"))
           file_obj.attr("flush")();
 
-          // Free the C-allocated buffer
+        // Free the C-allocated buffer
         mlirCudaTileFreeBuffer(bytecode_buffer);
 
         return true;
       },
-      py::arg("file"), py::arg("module"),
+      nb::arg("file"), nb::arg("module"),
       "Write cuda_tile module to bytecode file object using CAPI wrapper");
 
   // TODO: Implement CudaTile C API wrappers using tablegen.
@@ -116,22 +117,22 @@ PYBIND11_MODULE(_cuda_tile, m) {
                      })
       .def_classmethod(
           "get",
-          [](const py::object &cls, MlirType pointeeType,
-             MlirContext context) -> py::object {
+          [](const nb::object &cls, MlirType pointeeType,
+             MlirContext context) -> nb::object {
             // Note: PointerType does not have a verifier, so `getCheckedType`
             // cannot be used.
             return cls(mlirCudaTilePointerTypeGet(context, pointeeType));
           },
-          py::arg("cls"), py::arg("pointee_type"),
-          py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("pointee_type"),
+          nb::arg("context") = nb::none())
       .def_classmethod(
           "upcast_type",
-          [](const py::object &cls, MlirType type) -> py::object {
+          [](const nb::object &cls, MlirType type) -> nb::object {
             if (mlirCudaTileTypeIsAPointerType(type))
               return cls(type);
-            return py::none();
+            return nb::none();
           },
-          py::arg("cls"), py::arg("type"))
+          nb::arg("cls"), nb::arg("type"))
       .def_property_readonly("pointee_type", [](MlirType self) -> MlirType {
         return mlirCudaTilePointerTypeGetPointeeType(self);
       });
@@ -141,24 +142,24 @@ PYBIND11_MODULE(_cuda_tile, m) {
       [](MlirType type) -> bool { return mlirCudaTileTypeIsATileType(type); })
       .def_classmethod(
           "get",
-          [](const py::object &cls, const std::vector<int64_t> &shape,
-             MlirType elementType, MlirContext context) -> py::object {
+          [](const nb::object &cls, const std::vector<int64_t> &shape,
+             MlirType elementType, MlirContext context) -> nb::object {
             MlirType type = mlirCudaTileTileTypeGetChecked(
                 context, shape.size(), shape.data(), elementType);
             if (mlirTypeIsNull(type))
-              return py::none();
+              return nb::none();
             return cls(type);
           },
-          py::arg("cls"), py::arg("shape"), py::arg("element_type"),
-          py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("shape"), nb::arg("element_type"),
+          nb::arg("context") = nb::none())
       .def_classmethod(
           "upcast_type",
-          [](const py::object &cls, MlirType type) -> py::object {
+          [](const nb::object &cls, MlirType type) -> nb::object {
             if (mlirCudaTileTypeIsATileType(type))
               return cls(type);
-            return py::none();
+            return nb::none();
           },
-          py::arg("cls"), py::arg("type"))
+          nb::arg("cls"), nb::arg("type"))
       .def_property_readonly("shape",
                              [](MlirType type) -> std::vector<int64_t> {
                                intptr_t rank =
@@ -179,10 +180,10 @@ PYBIND11_MODULE(_cuda_tile, m) {
       [](MlirType type) -> bool { return mlirCudaTileTypeIsATokenType(type); })
       .def_classmethod(
           "get",
-          [](const py::object &cls, MlirContext context) -> py::object {
+          [](const nb::object &cls, MlirContext context) -> nb::object {
             return cls(mlirCudaTileTokenTypeGet(context));
           },
-          py::arg("cls"), py::arg("context") = py::none());
+          nb::arg("cls"), nb::arg("context") = nb::none());
 
   mlir_type_subclass(m, "TensorViewType",
                      [](MlirType type) -> bool {
@@ -190,10 +191,10 @@ PYBIND11_MODULE(_cuda_tile, m) {
                      })
       .def_classmethod(
           "get",
-          [](const py::object &cls, MlirType elementType,
+          [](const nb::object &cls, MlirType elementType,
              const std::vector<std::optional<int64_t>> &shape,
              const std::vector<std::optional<int64_t>> &stride,
-             MlirContext context) -> py::object {
+             MlirContext context) -> nb::object {
             auto transformDynamic = [](std::optional<int64_t> val) {
               if (!val.has_value())
                 return mlirCudaTileTensorViewTypeGetDynamicSize();
@@ -207,7 +208,7 @@ PYBIND11_MODULE(_cuda_tile, m) {
               oss << "expected strictly positive value for tensor_view "
                      "dimension, got "
                   << val.value();
-              throw py::value_error(errorMsg);
+              throw std::invalid_argument(errorMsg);
             };
 
             std::vector<int64_t> shapeEncoded(shape.size());
@@ -219,11 +220,11 @@ PYBIND11_MODULE(_cuda_tile, m) {
                 context, elementType, shape.size(), shapeEncoded.data(),
                 stride.size(), strideEncoded.data());
             if (mlirTypeIsNull(type))
-              return py::none();
+              return nb::none();
             return cls(type);
           },
-          py::arg("cls"), py::arg("element_type"), py::arg("shape"),
-          py::arg("stride"), py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("element_type"), nb::arg("shape"),
+          nb::arg("stride"), nb::arg("context") = nb::none())
       .def_property_readonly("element_type",
                              [](MlirType type) -> MlirType {
                                return mlirCudaTileTensorViewTypeGetElementType(
@@ -261,13 +262,13 @@ PYBIND11_MODULE(_cuda_tile, m) {
                      })
       .def_classmethod(
           "get",
-          [](const py::object &cls, const std::vector<int32_t> &tileShape,
+          [](const nb::object &cls, const std::vector<int32_t> &tileShape,
              MlirType wrappedTensorViewType,
              const std::optional<std::vector<int32_t>> &dimMap,
-             const py::object &paddingValue,
-             MlirContext context) -> py::object {
+             const nb::object &paddingValue,
+             MlirContext context) -> nb::object {
             if (!mlirCudaTileTypeIsATensorViewType(wrappedTensorViewType)) {
-              throw py::type_error("expected tensor_view type");
+              throw std::invalid_argument("expected tensor_view type");
             }
 
             std::vector<int32_t> dimMapInPlace;
@@ -284,7 +285,7 @@ PYBIND11_MODULE(_cuda_tile, m) {
 
             MlirAttribute paddingValueAttr = {nullptr};
             if (!paddingValue.is_none()) {
-              paddingValueAttr = py::cast<MlirAttribute>(paddingValue);
+              paddingValueAttr = nb::cast<MlirAttribute>(paddingValue);
             }
 
             // Create DenseI32ArrayAttr for tile shape
@@ -295,13 +296,13 @@ PYBIND11_MODULE(_cuda_tile, m) {
                 context, tileShapeAttr, wrappedTensorViewType,
                 dimMapParam->size(), dimMapParam->data(), paddingValueAttr);
             if (mlirTypeIsNull(type))
-              return py::none();
+              return nb::none();
             return cls(type);
           },
-          py::arg("cls"), py::arg("tile_shape"), py::arg("tensor_view_type"),
-          py::arg("dim_map") = py::none(),
-          py::arg("padding_value") = py::none(),
-          py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("tile_shape"), nb::arg("tensor_view_type"),
+          nb::arg("dim_map") = nb::none(),
+          nb::arg("padding_value") = nb::none(),
+          nb::arg("context") = nb::none())
       .def_property_readonly(
           "tile_shape",
           [](MlirType type) -> std::vector<int32_t> {
@@ -325,10 +326,9 @@ PYBIND11_MODULE(_cuda_tile, m) {
           [](MlirType type) -> std::vector<int32_t> {
             intptr_t rank = mlirCudaTilePartitionViewTypeGetDimMapRank(type);
             std::vector<int32_t> result(rank);
-            for (intptr_t i = 0; i < rank; ++i) {
+            for (intptr_t i = 0; i < rank; ++i)
               result[i] =
                   mlirCudaTilePartitionViewTypeGetDimMapElement(type, i);
-            }
             return result;
           })
       .def_property_readonly(
@@ -352,8 +352,8 @@ PYBIND11_MODULE(_cuda_tile, m) {
                           })
       .def_classmethod(
           "get",
-          [](const py::object &cls, const std::string &value,
-             MlirContext context) -> py::object {
+          [](const nb::object &cls, const std::string &value,
+             MlirContext context) -> nb::object {
             MlirStringRef valueStr =
                 mlirStringRefCreateFromCString(value.c_str());
             MlirAttribute attr =
@@ -366,7 +366,7 @@ PYBIND11_MODULE(_cuda_tile, m) {
             }
             return cls(attr);
           },
-          py::arg("cls"), py::arg("value"), py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("value"), nb::arg("context") = nb::none())
       .def_property_readonly("value", [](MlirAttribute self) -> std::string {
         MlirStringRef valueRef = mlirCudaTileRoundingModeAttrGetValue(self);
         return std::string(valueRef.data, valueRef.length);
@@ -379,8 +379,8 @@ PYBIND11_MODULE(_cuda_tile, m) {
       })
       .def_classmethod(
           "getEntryOpHint",
-          [](const py::object &cls, const std::string &arch, const int &num_cta,
-             const int &occupancy, MlirContext context) -> py::object {
+          [](const nb::object &cls, const std::string &arch, int num_cta,
+             int occupancy, MlirContext context) -> nb::object {
             MlirStringRef archStr =
                 mlirStringRefCreateFromCString(arch.c_str());
             MlirAttribute attr =
@@ -388,26 +388,25 @@ PYBIND11_MODULE(_cuda_tile, m) {
                     context, archStr, num_cta, occupancy);
             return cls(attr);
           },
-          py::arg("cls"), py::arg("arch"), py::arg("num_cta"),
-          py::arg("occupancy"), py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("arch"), nb::arg("num_cta"),
+          nb::arg("occupancy"), nb::arg("context") = nb::none())
       .def_classmethod(
           "getLoadStoreOpHint",
-          [](const py::object &cls, const std::string &arch,
-             const py::object &allow_tma, const int &latency,
-             MlirContext context) -> py::object {
+          [](const nb::object &cls, const std::string &arch,
+             std::optional<bool> allow_tma, int latency,
+             MlirContext context) -> nb::object {
             MlirStringRef archStr =
                 mlirStringRefCreateFromCString(arch.c_str());
-            // Convert Python None/True/False to -1/1/0
             int8_t allowTmaValue = -1; // default: not specified
-            if (!allow_tma.is_none())
-              allowTmaValue = py::cast<bool>(allow_tma) ? 1 : 0;
+            if (allow_tma.has_value())
+              allowTmaValue = *allow_tma ? 1 : 0;
             MlirAttribute attr =
                 mlirCudaTileOptimizationHintsAttrGetLoadStoreOpHint(
                     context, archStr, allowTmaValue, latency);
             return cls(attr);
           },
-          py::arg("cls"), py::arg("arch"), py::arg("allow_tma"),
-          py::arg("latency"), py::arg("context") = py::none());
+          nb::arg("cls"), nb::arg("arch"), nb::arg("allow_tma") = nb::none(),
+          nb::arg("latency"), nb::arg("context") = nb::none());
 
   mlir_attribute_subclass(
       m, "MemoryOrderingSemanticsAttr",
@@ -416,8 +415,8 @@ PYBIND11_MODULE(_cuda_tile, m) {
       })
       .def_classmethod(
           "get",
-          [](const py::object &cls, const std::string &value,
-             MlirContext context) -> py::object {
+          [](const nb::object &cls, const std::string &value,
+             MlirContext context) -> nb::object {
             MlirStringRef valueStr =
                 mlirStringRefCreateFromCString(value.c_str());
             MlirAttribute attr =
@@ -430,7 +429,7 @@ PYBIND11_MODULE(_cuda_tile, m) {
             }
             return cls(attr);
           },
-          py::arg("cls"), py::arg("value"), py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("value"), nb::arg("context") = nb::none())
       .def_property_readonly("value", [](MlirAttribute self) -> std::string {
         MlirStringRef valueRef =
             mlirCudaTileMemoryOrderingSemanticsAttrGetValue(self);
@@ -444,17 +443,17 @@ PYBIND11_MODULE(_cuda_tile, m) {
                           })
       .def_classmethod(
           "get",
-          [](const py::object &cls, const std::string &value,
-             MlirContext context) -> py::object {
+          [](const nb::object &cls, const std::string &value,
+             MlirContext context) -> nb::object {
             MlirStringRef valueStr =
                 mlirStringRefCreateFromCString(value.c_str());
             MlirAttribute attr =
                 mlirCudaTileMemoryScopeAttrGet(context, valueStr);
             if (mlirAttributeIsNull(attr))
-              throw py::value_error("Invalid memory scope: " + value);
+              throw std::invalid_argument("Invalid memory scope: " + value);
             return cls(attr);
           },
-          py::arg("cls"), py::arg("value"), py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("value"), nb::arg("context") = nb::none())
       .def_property_readonly("value", [](MlirAttribute self) -> std::string {
         MlirStringRef valueRef = mlirCudaTileMemoryScopeAttrGetValue(self);
         return std::string(valueRef.data, valueRef.length);
@@ -467,17 +466,17 @@ PYBIND11_MODULE(_cuda_tile, m) {
                           })
       .def_classmethod(
           "get",
-          [](const py::object &cls, const std::string &value,
-             MlirContext context) -> py::object {
+          [](const nb::object &cls, const std::string &value,
+             MlirContext context) -> nb::object {
             MlirStringRef valueStr =
                 mlirStringRefCreateFromCString(value.c_str());
             MlirAttribute attr =
                 mlirCudaTilePaddingValueAttrGet(context, valueStr);
             if (mlirAttributeIsNull(attr))
-              throw py::value_error("Invalid padding value: " + value);
+              throw std::invalid_argument("Invalid padding value: " + value);
             return cls(attr);
           },
-          py::arg("cls"), py::arg("value"), py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("value"), nb::arg("context") = nb::none())
       .def_property_readonly("value", [](MlirAttribute self) -> std::string {
         MlirStringRef valueRef = mlirCudaTilePaddingValueAttrGetValue(self);
         return std::string(valueRef.data, valueRef.length);
@@ -490,17 +489,17 @@ PYBIND11_MODULE(_cuda_tile, m) {
                           })
       .def_classmethod(
           "get",
-          [](const py::object &cls, const std::string &value,
-             MlirContext context) -> py::object {
+          [](const nb::object &cls, const std::string &value,
+             MlirContext context) -> nb::object {
             MlirStringRef valueStr =
                 mlirStringRefCreateFromCString(value.c_str());
             MlirAttribute attr =
                 mlirCudaTileAtomicRMWModeAttrGet(context, valueStr);
             if (mlirAttributeIsNull(attr))
-              throw py::value_error("Invalid atomic RMW mode: " + value);
+              throw std::invalid_argument("Invalid atomic RMW mode: " + value);
             return cls(attr);
           },
-          py::arg("cls"), py::arg("value"), py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("value"), nb::arg("context") = nb::none())
       .def_property_readonly("value", [](MlirAttribute self) -> std::string {
         MlirStringRef valueRef = mlirCudaTileAtomicRMWModeAttrGetValue(self);
         return std::string(valueRef.data, valueRef.length);
@@ -513,17 +512,17 @@ PYBIND11_MODULE(_cuda_tile, m) {
                           })
       .def_classmethod(
           "get",
-          [](const py::object &cls, const std::string &value,
-             MlirContext context) -> py::object {
+          [](const nb::object &cls, const std::string &value,
+             MlirContext context) -> nb::object {
             MlirStringRef valueStr =
                 mlirStringRefCreateFromCString(value.c_str());
             MlirAttribute attr =
                 mlirCudaTileIntegerOverflowAttrGet(context, valueStr);
             if (mlirAttributeIsNull(attr))
-              throw py::value_error("Invalid integer overflow: " + value);
+              throw std::invalid_argument("Invalid integer overflow: " + value);
             return cls(attr);
           },
-          py::arg("cls"), py::arg("value"), py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("value"), nb::arg("context") = nb::none())
       .def_property_readonly("value", [](MlirAttribute self) -> std::string {
         MlirStringRef valueRef = mlirCudaTileIntegerOverflowAttrGetValue(self);
         return std::string(valueRef.data, valueRef.length);
@@ -535,21 +534,22 @@ PYBIND11_MODULE(_cuda_tile, m) {
                           })
       .def_classmethod(
           "get",
-          [](const py::object &cls, const std::string &value,
-             MlirContext context) -> py::object {
+          [](const nb::object &cls, const std::string &value,
+             MlirContext context) -> nb::object {
             MlirStringRef valueStr =
                 mlirStringRefCreateFromCString(value.c_str());
             MlirAttribute attr =
                 mlirCudaTileSignednessAttrGet(context, valueStr);
             if (mlirAttributeIsNull(attr))
-              throw py::value_error("Invalid signedness: " + value);
+              throw std::invalid_argument("Invalid signedness: " + value);
             return cls(attr);
           },
-          py::arg("cls"), py::arg("value"), py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("value"), nb::arg("context") = nb::none())
       .def_property_readonly("value", [](MlirAttribute self) -> std::string {
         MlirStringRef valueRef = mlirCudaTileSignednessAttrGetValue(self);
         return std::string(valueRef.data, valueRef.length);
       });
+
   mlir_attribute_subclass(
       m, "ComparisonOrderingAttr",
       [](MlirAttribute attr) -> bool {
@@ -557,22 +557,24 @@ PYBIND11_MODULE(_cuda_tile, m) {
       })
       .def_classmethod(
           "get",
-          [](const py::object &cls, const std::string &value,
-             MlirContext context) -> py::object {
+          [](const nb::object &cls, const std::string &value,
+             MlirContext context) -> nb::object {
             MlirStringRef valueStr =
                 mlirStringRefCreateFromCString(value.c_str());
             MlirAttribute attr =
                 mlirCudaTileComparisonOrderingAttrGet(context, valueStr);
             if (mlirAttributeIsNull(attr))
-              throw py::value_error("Invalid comparison ordering: " + value);
+              throw std::invalid_argument("Invalid comparison ordering: " +
+                                          value);
             return cls(attr);
           },
-          py::arg("cls"), py::arg("value"), py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("value"), nb::arg("context") = nb::none())
       .def_property_readonly("value", [](MlirAttribute self) -> std::string {
         MlirStringRef valueRef =
             mlirCudaTileComparisonOrderingAttrGetValue(self);
         return std::string(valueRef.data, valueRef.length);
       });
+
   mlir_attribute_subclass(
       m, "ComparisonPredicateAttr",
       [](MlirAttribute attr) -> bool {
@@ -580,17 +582,18 @@ PYBIND11_MODULE(_cuda_tile, m) {
       })
       .def_classmethod(
           "get",
-          [](const py::object &cls, const std::string &value,
-             MlirContext context) -> py::object {
+          [](const nb::object &cls, const std::string &value,
+             MlirContext context) -> nb::object {
             MlirStringRef valueStr =
                 mlirStringRefCreateFromCString(value.c_str());
             MlirAttribute attr =
                 mlirCudaTileComparisonPredicateAttrGet(context, valueStr);
             if (mlirAttributeIsNull(attr))
-              throw py::value_error("Invalid comparison predicate: " + value);
+              throw std::invalid_argument("Invalid comparison predicate: " +
+                                          value);
             return cls(attr);
           },
-          py::arg("cls"), py::arg("value"), py::arg("context") = py::none())
+          nb::arg("cls"), nb::arg("value"), nb::arg("context") = nb::none())
       .def_property_readonly("value", [](MlirAttribute self) -> std::string {
         MlirStringRef valueRef =
             mlirCudaTileComparisonPredicateAttrGetValue(self);

@@ -1,6 +1,7 @@
 include(AddMLIRPython)
 
-# For sanitizer enabled clang build, need to enable build pybind DSOs with shared library of sanitizers
+# For sanitizer enabled clang build, need to enable build nanobind DSOs with
+# shared library of sanitizers
 # Read more at https://github.com/google/sanitizers/issues/1086
 if(CUDA_TILE_ENABLE_SANITIZER AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   add_compile_options("-shared-libasan")
@@ -10,7 +11,7 @@ endif()
 # top level package (the API has been embedded in a relocatable way).
 add_compile_definitions("MLIR_PYTHON_PACKAGE_PREFIX=cuda_tile._mlir.")
 
-set(MLIR_PYBIND_PKG_ROOT ${LLVM_ROOT}/python_packages/mlir_core)
+set(MLIR_PYTHON_PKG_ROOT ${LLVM_ROOT}/python_packages/mlir_core)
 
 
 ################################################################################
@@ -27,15 +28,16 @@ declare_mlir_python_sources(CudaTilePythonSources.Dialects
 #  CudaTile Dialect Python Bindings
 ################################################################################
 
-# Build a PyBind11 module with special name for auto registration during python site initialization.
+# Build a nanobind module with special name for auto registration during python
+# site initialization.
 # Read more at https://github.com/llvm/llvm-project/blob/main/mlir/python/mlir/_mlir_libs/__init__.py#L41
 
-declare_mlir_python_extension(CudaTilePythonSources.SiteInitializer.PyBind
+declare_mlir_python_extension(CudaTilePythonSources.SiteInitializer
   # Note: It appears this module name is not important but we happen to use the same name for all other Python
   # bindings. Name is unchanged in order to minimize the disruption to cuTile and other users.
   MODULE_NAME   _site_initialize_1
   ADD_TO_PARENT CudaTilePythonSources
-  PYTHON_BINDINGS_LIBRARY pybind11
+  PYTHON_BINDINGS_LIBRARY nanobind
   SOURCES
     SiteInitializer.cpp
   EMBED_CAPI_LINK_LIBS
@@ -55,11 +57,11 @@ declare_mlir_dialect_python_bindings(
     "../../include/cuda_tile/Dialect/CudaTile/IR/Types.td"
 )
 
-declare_mlir_python_extension(CudaTilePythonSources.Dialects.cuda_tile.Pybind
+declare_mlir_python_extension(CudaTilePythonSources.Dialects.cuda_tile.Nanobind
   MODULE_NAME _cuda_tile
   ADD_TO_PARENT CudaTilePythonSources.Dialects.cuda_tile
-  ROOT_DIR "${PYTHON_SOURCE_DIR}"
-  PYTHON_BINDINGS_LIBRARY pybind11
+  ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
+  PYTHON_BINDINGS_LIBRARY nanobind
   SOURCES
     Dialect/DialectCudaTile.cpp
   PRIVATE_LINK_LIBS
