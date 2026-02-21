@@ -24,7 +24,7 @@ macro(download_llvm_sources)
   include(FetchContent)
 
   set(LLVM_GIT_REPO "https://github.com/llvm/llvm-project.git")
-  set(LLVM_BUILD_COMMIT_HASH 34eb59dd4bb26cab248cc3a29b57b8dbe8d46849)
+  set(LLVM_BUILD_COMMIT_HASH b82c7fc65229c8b2b6a964f023f6ec59b3cf9210)
   message(STATUS "Downloading LLVM sources from ${LLVM_GIT_REPO}@${LLVM_BUILD_COMMIT_HASH} to ${LLVM_SOURCE_DIR}")
 
   # Set FetchContent directories. SOURCE_DIR and BINARY_DIR and SUBBUILD_DIR
@@ -80,6 +80,9 @@ macro(configure_llvm_from_sources)
   set(LLVM_ENABLE_PROJECTS "mlir" CACHE STRING "")
   # No need to build any LLVM targets.
   set(LLVM_TARGETS_TO_BUILD "" CACHE STRING "")
+  # Disable PCH to avoid flag mismatches between LLVM and CUDA Tile targets
+  # (e.g. NDEBUG differences).
+  set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON)
   # Propagate ccache setting to LLVM build.
   if(CUDA_TILE_ENABLE_CCACHE)
     set(LLVM_CCACHE_BUILD ON CACHE BOOL "")
