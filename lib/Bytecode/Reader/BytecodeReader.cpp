@@ -695,22 +695,58 @@ public:
     // Convert ArrayRef<uint8_t> to ArrayRef<char>.
     ArrayRef<char> rawData(reinterpret_cast<const char *>(rawUint8Data.data()),
                            rawUint8Data.size());
-    // Validate the buffer size and format.
-    if (!DenseElementsAttr::isValidRawBuffer(tileType, rawData)) {
-      return reader.emitError() << "failed to validate buffer size and format";
-    }
 
     DenseElementsAttr attr = nullptr;
-    // Handle endianness conversion.
-    if (llvm::endianness::native == llvm::endianness::big) {
-      // Convert endianess.
-      SmallVector<char, 64> outDataVec(rawData.size());
-      MutableArrayRef<char> convRawData(outDataVec);
-      DenseTypedElementsAttr::convertEndianOfArrayRefForBEmachine(
-          rawData, convRawData, tileType);
-      attr = DenseElementsAttr::getFromRawBuffer(tileType, convRawData);
+
+    if (tileType.getElementType().isInteger(1)) {
+      // i1 dense attributes are decoded element-by-element here rather than
+      // handed to MLIR's getFromRawBuffer(). Upstream MLIR has shifted the
+      // i1 raw buffer contract more than once; the wire format is kept
+      // independent of whichever LLVM revision is linked. The writer emits
+      // bit-packed bytes with a single-byte splat.
+      //
+      // Two payload shapes are accepted:
+      //   * size == ceil(N/8)  -> bit-packed. For N <= 8 a single-byte
+      //                           splat coincides with the packed size and
+      //                           falls into this branch (bits beyond N are
+      //                           ignored).
+      //   * size == 1, N > 8   -> splat stored as a single byte regardless
+      //                           of shape; bit 0 is the splat value.
+      size_t numEls = tileType.getNumElements();
+      size_t packedSize = (numEls + 7) / 8;
+      SmallVector<bool> values;
+      values.reserve(numEls);
+      if (rawData.size() == packedSize) {
+        for (size_t i = 0; i < numEls; ++i)
+          values.push_back(((rawData[i / 8] >> (i % 8)) & 1) != 0);
+      } else if (rawData.size() == 1 && numEls > 8) {
+        bool splat = (rawData[0] & 0x1) != 0;
+        values.assign(numEls, splat);
+      } else {
+        return reader.emitError()
+               << "i1 dense attribute payload size " << rawData.size()
+               << " is not a recognized encoding for " << numEls
+               << " elements";
+      }
+      attr = DenseElementsAttr::get(tileType, ArrayRef<bool>(values));
     } else {
-      attr = DenseElementsAttr::getFromRawBuffer(tileType, rawData);
+      // Non-i1 path: ride MLIR's raw buffer contract.
+      // Validate the buffer size and format.
+      if (!DenseElementsAttr::isValidRawBuffer(tileType, rawData)) {
+        return reader.emitError()
+               << "failed to validate buffer size and format";
+      }
+      // Handle endianness conversion.
+      if (llvm::endianness::native == llvm::endianness::big) {
+        // Convert endianess.
+        SmallVector<char, 64> outDataVec(rawData.size());
+        MutableArrayRef<char> convRawData(outDataVec);
+        DenseTypedElementsAttr::convertEndianOfArrayRefForBEmachine(
+            rawData, convRawData, tileType);
+        attr = DenseElementsAttr::getFromRawBuffer(tileType, convRawData);
+      } else {
+        attr = DenseElementsAttr::getFromRawBuffer(tileType, rawData);
+      }
     }
 
     if (attr)

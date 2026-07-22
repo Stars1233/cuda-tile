@@ -500,6 +500,34 @@ struct ConstantManager {
   /// and dense element attributes suitable for the constant pool.
   LogicalResult serializeAttribute(Attribute attr, EncodingWriter &writer) {
     if (auto denseAttr = dyn_cast<DenseElementsAttr>(attr)) {
+      // i1 dense attributes use a fixed encoding so the bytes don't depend
+      // on whichever MLIR version is linked at build time. Upstream MLIR's
+      // getRawData() for i1 has shifted between bit-packed and one-byte-per-
+      // element across LLVM revisions. The wire format is: a splat is a
+      // single byte (0xff true / 0x00 false); a non-splat is bit-packed,
+      // ceil(N/8) bytes, element i in bit (i % 8) of byte (i / 8).
+      auto tileType = dyn_cast<cuda_tile::TileType>(denseAttr.getType());
+      if (tileType && tileType.getElementType().isInteger(1)) {
+        if (denseAttr.isSplat()) {
+          char b = denseAttr.getSplatValue<bool>() ? static_cast<char>(0xff)
+                                                   : static_cast<char>(0x00);
+          writer.writeVarInt(1);
+          writer.write(&b, 1);
+          return success();
+        }
+        size_t numEls = tileType.getNumElements();
+        SmallVector<char> packed((numEls + 7) / 8, 0);
+        size_t i = 0;
+        for (bool value : denseAttr.getValues<bool>()) {
+          if (value)
+            packed[i / 8] |= static_cast<char>(1u << (i % 8));
+          ++i;
+        }
+        writer.writeVarInt(packed.size());
+        writer.write(packed.data(), packed.size());
+        return success();
+      }
+      // Non-i1 path: ride MLIR's raw buffer contract.
       // Get the raw data buffer in little-endian format.
       ArrayRef<char> rawData = denseAttr.getRawData();
       // Write the size of the raw buffer.
