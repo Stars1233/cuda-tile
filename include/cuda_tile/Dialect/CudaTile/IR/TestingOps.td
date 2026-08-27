@@ -31,8 +31,8 @@ include "cuda_tile/Dialect/CudaTile/IR/TestingAttrs.td"
 //===----------------------------------------------------------------------===//
 
 def CudaTile_Test_FuncOp : CudaTileTestingOpDef<"func", "250.0", [
-  IsolatedFromAbove, FunctionOpInterface, SingleBlock, OpAsmOpInterface, 
-  SingleBlockImplicitTerminator<"ReturnOp">
+  IsolatedFromAbove, FunctionOpInterface, SingleBlock, OpAsmOpInterface,
+  SingleBlockImplicitTerminator<"ReturnOp">, SymbolName
 ]> {
 
   let arguments = (ins 
@@ -56,6 +56,11 @@ def CudaTile_Test_FuncOp : CudaTileTestingOpDef<"func", "250.0", [
 
     /// Returns the result types of this function.
     ArrayRef<Type> getResultTypes() { return getFunctionType().getResults(); }
+
+    ::mlir::SymbolTable::Visibility getVisibility() {
+      return ::mlir::SymbolTable::Visibility::Public;
+    }
+    void setVisibility(::mlir::SymbolTable::Visibility) {}
   }];
 }
 

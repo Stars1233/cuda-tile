@@ -2669,7 +2669,7 @@ constexpr char kOptimizationHintsAttr[] = "optimization_hints";
 ParseResult EntryOp::parse(OpAsmParser &parser, OperationState &result) {
   // Parse the name as a symbol.
   StringAttr nameAttr;
-  if (parser.parseSymbolName(nameAttr, SymbolTable::getSymbolAttrName(),
+  if (parser.parseSymbolName(nameAttr, getSymNameAttrName(result.name),
                              result.attributes))
     return failure();
 
@@ -2735,10 +2735,7 @@ ParseResult EntryOp::parse(OpAsmParser &parser, OperationState &result) {
 
 void EntryOp::print(OpAsmPrinter &printer) {
   // Print the operation and the function name.
-  auto funcName =
-      getOperation()
-          ->getAttrOfType<StringAttr>(SymbolTable::getSymbolAttrName())
-          .getValue();
+  auto funcName = getSymName();
   printer << ' ';
   printer.printSymbolName(funcName);
   auto fnType = getFunctionType();
@@ -2755,7 +2752,7 @@ void EntryOp::print(OpAsmPrinter &printer) {
   printer.printOptionalAttrDict(
       getOperation()->getAttrs(),
       {getArgAttrsAttrName(), getFunctionTypeAttrName(),
-       SymbolTable::getSymbolAttrName(), getResAttrsAttrName(),
+       getSymNameAttrName(), getResAttrsAttrName(),
        kOptimizationHintsAttr});
 }
 

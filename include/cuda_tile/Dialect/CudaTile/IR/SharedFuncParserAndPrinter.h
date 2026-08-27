@@ -24,7 +24,7 @@ template <typename OpTy>
 ParseResult parseFuncOp(OpAsmParser &parser, OperationState &result) {
   // Parse the name as a symbol.
   StringAttr nameAttr;
-  if (parser.parseSymbolName(nameAttr, SymbolTable::getSymbolAttrName(),
+  if (parser.parseSymbolName(nameAttr, OpTy::getSymNameAttrName(result.name),
                              result.attributes))
     return failure();
 
@@ -80,10 +80,7 @@ ParseResult parseFuncOp(OpAsmParser &parser, OperationState &result) {
 template <typename OpTy>
 void printFuncOp(OpTy op, OpAsmPrinter &printer) {
   // Print the operation and the function name.
-  auto funcName =
-      op.getOperation()
-          ->template getAttrOfType<StringAttr>(SymbolTable::getSymbolAttrName())
-          .getValue();
+  auto funcName = op.getSymName();
   printer << ' ';
   printer.printSymbolName(funcName);
   auto fnType = op.getFunctionType();
@@ -96,7 +93,7 @@ void printFuncOp(OpTy op, OpAsmPrinter &printer) {
   printer.printOptionalAttrDict(
       op.getOperation()->getAttrs(),
       {op.getArgAttrsAttrName(), op.getFunctionTypeAttrName(),
-       SymbolTable::getSymbolAttrName(), op.getResAttrsAttrName()});
+       op.getSymNameAttrName(), op.getResAttrsAttrName()});
 }
 
 } // end namespace mlir::cuda_tile.

@@ -2179,7 +2179,7 @@ def CudaTile_FToIOp : CudaTileConversionOpDef<"ftoi", "13.1", [
 
 def CudaTile_EntryOp : CudaTileCoreOpDef<"entry", "13.1", [
   FunctionOpInterface, IsolatedFromAbove, OpAsmOpInterface, SingleBlock,
-  SingleBlockImplicitTerminator<"ReturnOp">
+  SingleBlockImplicitTerminator<"ReturnOp">, SymbolName
 ]> {
   let summary = "Define a tile kernel";
   let description = [{
@@ -2216,6 +2216,11 @@ def CudaTile_EntryOp : CudaTileCoreOpDef<"entry", "13.1", [
 
     /// Returns the result types of this function.
     ArrayRef<Type> getResultTypes() { return getFunctionType().getResults(); }
+
+    ::mlir::SymbolTable::Visibility getVisibility() {
+      return ::mlir::SymbolTable::Visibility::Public;
+    }
+    void setVisibility(::mlir::SymbolTable::Visibility) {}
 
     static void build(::mlir::OpBuilder &odsBuilder,
                       ::mlir::OperationState &odsState,
@@ -2350,7 +2355,7 @@ def CudaTile_GetGlobalOp  : CudaTileCoreOpDef<"get_global", "13.1", [
 // GlobalOp
 //===----------------------------------------------------------------------===//
 
-def CudaTile_GlobalOp : CudaTileCoreOpDef<"global", "13.1", [Symbol]> {
+def CudaTile_GlobalOp : CudaTileCoreOpDef<"global", "13.1", [Symbol, SymbolName]> {
   let summary = "Allocate static global memory";
 
   let description = [{
@@ -2404,6 +2409,13 @@ def CudaTile_GlobalOp : CudaTileCoreOpDef<"global", "13.1", [Symbol]> {
 
   let assemblyFormat = "custom<SymbolVisibility>($symbol_visibility) (`constant` $constant^)? $sym_name (`alignment` `=` $alignment^)? attr-dict custom<DenseTypedElementsAttrNoResult>($value)";
   let hasVerifier = 1;
+
+  let extraClassDeclaration = [{
+    ::mlir::SymbolTable::Visibility getVisibility() {
+      return ::mlir::SymbolTable::Visibility::Public;
+    }
+    void setVisibility(::mlir::SymbolTable::Visibility) {}
+  }];
 }
 
 //===----------------------------------------------------------------------===//
@@ -3372,7 +3384,7 @@ def CudaTile_MinIOp : CudaTileIntegerOpDef<"mini", "13.1",
 
 def CudaTile_ModuleOp : CudaTileCoreOpDef<"module", "13.1", [
     IsolatedFromAbove, OpAsmOpInterface, NoRegionArguments, SingleBlock,
-    SymbolTable]
+    Symbol, SymbolName, SymbolTable]
         # GraphRegionNoTerminator.traits> {
   let summary = "Top-level module containing a series of defined items.";
   let description = [{
@@ -3402,7 +3414,12 @@ def CudaTile_ModuleOp : CudaTileCoreOpDef<"module", "13.1", [
     OpBuilder<(ins "StringRef":$name, CArg<"StringRef", "\"\"">:$producer)>
   ];
 
-  let extraClassDeclaration = CudaTile_DefaultDialect.classDecl;
+  let extraClassDeclaration = CudaTile_DefaultDialect.classDecl # [{
+    ::mlir::SymbolTable::Visibility getVisibility() {
+      return ::mlir::SymbolTable::Visibility::Public;
+    }
+    void setVisibility(::mlir::SymbolTable::Visibility) {}
+  }];
 }
 
 //===----------------------------------------------------------------------===//
