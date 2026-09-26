@@ -42,6 +42,12 @@ def CudaTile_Dialect : Dialect {
   let useDefaultTypePrinterParser = 1;
   let useDefaultAttributePrinterParser = 1;
 
+  // Temporary opt-out of strict property assembly formats, deprecated upstream
+  // since LLVM c495a9b796c4. Some formats still carry inherent attributes in
+  // `attr-dict`. This only affects the textual IR, not bytecode. Remove once
+  // all formats bind their attributes or use `prop-dict`.
+  let useStrictPropertiesInAssemblyFormat = 0;
+
   let extraClassDeclaration = [{
     template <typename... OpTys>
     void addExternalOperations() {
